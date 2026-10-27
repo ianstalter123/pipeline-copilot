@@ -1,0 +1,20 @@
+# Ported from the Gmail triage project. Day 4: wire the Gmail API pull here;
+# until then the demo inbox is the source of truth.
+name: ingest
+on:
+  schedule:
+    - cron: "0 * * * *"   # hourly ingest
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m app.ingest
+        env:
+          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
