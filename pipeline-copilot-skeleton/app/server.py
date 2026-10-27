@@ -6,9 +6,13 @@ Pages: /           inbox with class badges
 Endpoints: POST /api/run            full pipeline over demo inbox (Day 5)
            POST /api/drafts/{id}/decision  {decision: approved|edited|rejected, text?}
 """
+import json
+import os
+import urllib.request
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 
 from app.classify import classify
@@ -70,10 +74,10 @@ def run_pipeline():
     ingest_demo()
     conn = connect()
     rows = conn.execute(
-        "SELECT id, body FROM replies "
+        "SELECT id, sender, subject, body FROM replies "
         "WHERE id NOT IN (SELECT reply_id FROM classifications)").fetchall()
     hot = 0
-    for reply_id, body in rows:
+    for reply_id, sender, subject, body in rows:
         cls = classify(body)
         conn.execute(
             "INSERT INTO classifications (reply_id, reply_class, confidence, model, created_at) "
@@ -91,7 +95,56 @@ def run_pipeline():
             "INSERT INTO drafts (reply_id, draft_text) VALUES (?,?)", (reply_id, text))
         if cls["class"] in HOT_CLASSES:
             hot += 1
-            # Day 5: post Slack webhook here
+            post_slack_alert(reply_id, sender, subject,
+                             cls["class"], cls["confidence"], text)
     conn.commit()
     conn.close()
     return {"processed": len(rows), "hot": hot}
+
+
+def post_slack_alert(reply_id, sender, subject, reply_class, confidence, draft_text):
+    """Post a hot-reply alert to Slack, or log it when no webhook is set."""
+    url = os.environ.get("SLACK_WEBHOOK_URL", "")
+    text = (f"Pipeline Copilot hot reply: {sender} — {subject} "
+            f"[{reply_class}] (confidence {confidence})\n"
+            f"Draft preview: {(draft_text or '')[:300]}")
+    if not url:
+        print(f"[slack] no webhook configured; alert not sent for reply {reply_id} ({reply_class})", flush=True)
+        return False
+    try:
+        req = urllib.request.Request(
+            url, data=json.dumps({"text": text}).encode("utf-8"),
+            headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            print(f"[slack] alert sent for reply {reply_id}: HTTP {resp.status}", flush=True)
+        return True
+    except Exception as exc:  # noqa: BLE001 - an alert must never break the pipeline
+        print(f"[slack] alert failed for reply {reply_id}: {exc}", flush=True)
+        return False
+
+
+class Decision(BaseModel):
+    decision: str
+    text: str | None = None
+
+
+@app.post("/api/drafts/{draft_id}/decision")
+def decide_draft(draft_id: int, payload: Decision):
+    if payload.decision not in ("approved", "edited", "rejected"):
+        raise HTTPException(status_code=400, detail="decision must be approved, edited or rejected")
+    conn = connect()
+    row = conn.execute("SELECT id FROM drafts WHERE id = ?", (draft_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="draft not found")
+    if payload.text is not None:
+        conn.execute(
+            "UPDATE drafts SET decision = ?, draft_text = ?, decided_at = ? WHERE id = ?",
+            (payload.decision, payload.text, datetime.now(timezone.utc).isoformat(), draft_id))
+    else:
+        conn.execute(
+            "UPDATE drafts SET decision = ?, decided_at = ? WHERE id = ?",
+            (payload.decision, datetime.now(timezone.utc).isoformat(), draft_id))
+    conn.commit()
+    conn.close()
+    return {"draft_id": draft_id, "decision": payload.decision}
