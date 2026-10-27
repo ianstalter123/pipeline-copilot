@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 from fastapi.responses import HTMLResponse
 
 from app.classify import classify
@@ -125,7 +126,7 @@ def post_slack_alert(reply_id, sender, subject, reply_class, confidence, draft_t
 
 class Decision(BaseModel):
     decision: str
-    text: str | None = None
+    text: Optional[str] = None
 
 
 @app.post("/api/drafts/{draft_id}/decision")

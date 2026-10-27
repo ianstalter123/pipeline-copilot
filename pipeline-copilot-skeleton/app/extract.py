@@ -1,5 +1,6 @@
 """Field extraction: budget / timeline / pain / decision-maker / next step."""
 import os
+from typing import Optional
 
 from openai import OpenAI
 
@@ -7,7 +8,7 @@ from app.classify import get_client
 from app.schemas import Extraction, EXTRACT_SYSTEM
 
 
-def extract(reply_body: str, model: str | None = None) -> dict:
+def extract(reply_body: str, model: Optional[str] = None) -> dict:
     client = get_client()
     resp = client.beta.chat.completions.parse(
         model=model or os.environ.get("MODEL_ID", "muse-spark-1.3"),

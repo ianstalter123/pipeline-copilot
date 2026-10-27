@@ -1,5 +1,6 @@
 """Drafting: voice-matched follow-up drafts. Human approves before anything sends."""
 import os
+from typing import Optional
 
 from openai import OpenAI
 
@@ -26,7 +27,7 @@ required before anything sends; your output is always a DRAFT."""
 
 
 def draft(reply_body: str, reply_class: str, language: str,
-          model: str | None = None) -> str:
+          model: Optional[str] = None) -> str:
     client = get_client()
     resp = client.chat.completions.create(
         model=model or os.environ.get("MODEL_ID", "muse-spark-1.3"),

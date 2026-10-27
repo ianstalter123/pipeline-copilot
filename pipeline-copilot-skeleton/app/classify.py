@@ -5,6 +5,7 @@ Usage from Day 2:
     result = classify(reply_body)  # -> dict with class, language, confidence
 """
 import os
+from typing import Optional
 
 from openai import OpenAI
 
@@ -18,7 +19,7 @@ def get_client() -> OpenAI:
     return OpenAI(base_url="https://api.meta.ai/v1", api_key=api_key)
 
 
-def classify(reply_body: str, model: str | None = None,
+def classify(reply_body: str, model: Optional[str] = None,
              reasoning_effort: str = "minimal") -> dict:
     client = get_client()
     resp = client.beta.chat.completions.parse(

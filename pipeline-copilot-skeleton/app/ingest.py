@@ -1,13 +1,14 @@
 """Ingest: load demo inbox (or Gmail threads later) and normalize into the store."""
 import json
 from pathlib import Path
+from typing import Optional
 
 from app.store import connect
 
 HERE = Path(__file__).resolve().parent.parent
 
 
-def ingest_demo(path: Path | None = None) -> int:
+def ingest_demo(path: Optional[Path] = None) -> int:
     inbox = path or (HERE / "data" / "demo-inbox.json")
     data = json.loads(inbox.read_text(encoding="utf-8"))
     replies = data if isinstance(data, list) else data.get("replies", [])
