@@ -7,6 +7,17 @@ EVAL_MODEL_ID = os.environ.get("EVAL_MODEL_ID", "muse-spark-1.3-contributor")
 
 HOT_CLASSES = {"interested", "meeting-ready"}
 
+# Default ideal customer profile for Lead Finder (Northwind Robotics).
+# Demo ICP: warehouse-adjacent buyers, 50-500 employees, US/CA.
+DEFAULT_ICP = {
+    "industries": ["warehouse automation", "logistics", "third-party logistics"],
+    "min_employees": 50,
+    "max_employees": 500,
+    "regions": ["US", "CA"],
+    "keywords": ["automation", "DC", "fulfillment", "conveyor",
+                 "labor shortage", "second site", "expansion"],
+}
+
 VOICE_PROFILE = """\
 Alex Rivera, sales rep at Northwind Robotics (warehouse automation software).
 Writes short, plain-spoken emails. No hype, no jargon. Signs "— Alex".

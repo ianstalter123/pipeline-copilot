@@ -26,6 +26,12 @@ CREATE TABLE IF NOT EXISTS drafts (
     draft_text TEXT, decision TEXT DEFAULT 'pending',  -- pending|approved|edited|rejected
     decided_at TEXT
 );
+CREATE TABLE IF NOT EXISTS lead_drafts (
+    id INTEGER PRIMARY KEY,
+    prospect_id TEXT, prospect_name TEXT,
+    draft_text TEXT, decision TEXT DEFAULT 'pending',  -- pending|approved|edited|rejected
+    decided_at TEXT
+);
 """
 
 

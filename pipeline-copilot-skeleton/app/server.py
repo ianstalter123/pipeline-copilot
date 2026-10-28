@@ -3,8 +3,12 @@
 Run: uvicorn app.server:app --reload
 Pages: /           inbox with class badges
        /funnel     replies by class, approval stats
+       /leads      Lead Finder: ranked prospects + outreach drafts
 Endpoints: POST /api/run            full pipeline over demo inbox (Day 5)
            POST /api/drafts/{id}/decision  {decision: approved|edited|rejected, text?}
+           POST /api/leads/search  {icp} -> ranked prospects
+           POST /api/leads/{prospect_id}/draft -> outreach draft (stored, pending)
+           POST /api/leads/drafts/{id}/decision  same decision shape as reply drafts
 """
 import json
 import os
@@ -13,14 +17,15 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 from fastapi.responses import HTMLResponse
 
 from app.classify import classify
-from app.config import HOT_CLASSES
+from app.config import DEFAULT_ICP, HOT_CLASSES
 from app.draft import draft
 from app.extract import extract
 from app.ingest import ingest_demo
+from app.leads import draft_outreach, get_prospect, rank_prospects, score_prospect
 from app.store import connect
 
 app = FastAPI(title="Pipeline Copilot")
@@ -145,6 +150,92 @@ def decide_draft(draft_id: int, payload: Decision):
     else:
         conn.execute(
             "UPDATE drafts SET decision = ?, decided_at = ? WHERE id = ?",
+            (payload.decision, datetime.now(timezone.utc).isoformat(), draft_id))
+    conn.commit()
+    conn.close()
+    return {"draft_id": draft_id, "decision": payload.decision}
+
+
+class ICPRequest(BaseModel):
+    industries: List[str] = []
+    min_employees: Optional[int] = None
+    max_employees: Optional[int] = None
+    regions: List[str] = []
+    keywords: List[str] = []
+
+
+@app.get("/leads", response_class=HTMLResponse)
+def leads_page():
+    ranked = rank_prospects(DEFAULT_ICP, limit=10)
+    conn = connect()
+    drafts = conn.execute(
+        "SELECT id, prospect_name, draft_text, decision FROM lead_drafts "
+        "ORDER BY id").fetchall()
+    conn.close()
+    rows = "".join(
+        f"<div style='border:1px solid #ccc;padding:0.8em;margin:0.5em 0'>"
+        f"<b>{p['company']}</b> — {p['industry']}, {p['employees']} staff, {p['region']} "
+        f"<span style='background:#eef;padding:2px 6px;border-radius:4px'>score {p['score']}</span><br>"
+        f"<small>{'; '.join(p['reasons'])}</small><br>"
+        f"<i>{p['contact']}, {p['contact_role']}</i></div>"
+        for p in ranked
+    )
+    draft_rows = "".join(
+        f"<div style='border:1px solid #ccc;padding:0.8em;margin:0.5em 0'>"
+        f"<b>{name}</b> <i>decision: {decision}</i><pre>{text[:400]}</pre></div>"
+        for (_, name, text, decision) in drafts
+    )
+    return ("<html><body style='font-family:sans-serif;max-width:900px;margin:2em auto'>"
+            "<h1>Pipeline Copilot — Lead Finder</h1>"
+            "<p>Default ICP: warehouse automation / logistics / 3PL, 50–500 staff, US/CA. "
+            "Scores are explainable — every point has a reason. "
+            "Outreach drafts need human approval, same as reply drafts.</p>"
+            "<h2>Top prospects</h2>" + rows +
+            "<h2>Outreach drafts</h2>" + (draft_rows or "<p>No outreach drafts yet.</p>") +
+            "<p><a href='/'>back to inbox</a></p></body></html>")
+
+
+@app.post("/api/leads/search")
+def search_leads(payload: ICPRequest):
+    icp = payload.model_dump()
+    if not any(icp.values()):
+        icp = DEFAULT_ICP
+    return {"icp": icp, "results": rank_prospects(icp, limit=10)}
+
+
+@app.post("/api/leads/{prospect_id}/draft")
+def draft_lead_outreach(prospect_id: str):
+    prospect = get_prospect(prospect_id)
+    if prospect is None:
+        raise HTTPException(status_code=404, detail="prospect not found")
+    _, reasons = score_prospect(DEFAULT_ICP, prospect)
+    text = draft_outreach(prospect, reasons)
+    conn = connect()
+    cur = conn.execute(
+        "INSERT INTO lead_drafts (prospect_id, prospect_name, draft_text) "
+        "VALUES (?,?,?)", (prospect_id, prospect["company"], text))
+    draft_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return {"draft_id": draft_id, "prospect": prospect["company"], "draft_text": text}
+
+
+@app.post("/api/leads/drafts/{draft_id}/decision")
+def decide_lead_draft(draft_id: int, payload: Decision):
+    if payload.decision not in ("approved", "edited", "rejected"):
+        raise HTTPException(status_code=400, detail="decision must be approved, edited or rejected")
+    conn = connect()
+    row = conn.execute("SELECT id FROM lead_drafts WHERE id = ?", (draft_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="draft not found")
+    if payload.text is not None:
+        conn.execute(
+            "UPDATE lead_drafts SET decision = ?, draft_text = ?, decided_at = ? WHERE id = ?",
+            (payload.decision, payload.text, datetime.now(timezone.utc).isoformat(), draft_id))
+    else:
+        conn.execute(
+            "UPDATE lead_drafts SET decision = ?, decided_at = ? WHERE id = ?",
             (payload.decision, datetime.now(timezone.utc).isoformat(), draft_id))
     conn.commit()
     conn.close()
