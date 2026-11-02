@@ -27,7 +27,7 @@ follow-up in the seller's voice, matching the reply's language. Structured
 output throughout, so classifications and extractions come back as reliable
 data, not prose to parse.
 
-## Eval — proven, plus one table still open
+## Eval
 
 Proven (Oct 27 runs):
 - 30-reply batch: **26/30 = 86.7% accuracy, 0 call errors**; all 30 extracted
@@ -42,13 +42,26 @@ Proven (Oct 27 runs):
   Default ICP: warehouse automation / logistics / 3PL, 50–500 staff, US/CA.
   Top prospect: Cascade Fulfillment Co, 95.
 
-Open-weights eval — to be completed before submission (runs on partner
-credits via Baseten / Fireworks):
+Open-weights comparison — completed Nov 2, 2026. The same 30 replies and the
+same classification prompt were run through Meta's open-weight Llama 3.1 8B
+locally via Ollama (partner eval credits were allocated selectively, so the
+local route — "run open weights on compute you provide" — was used instead).
+Spark's numbers are from a timed classify-only re-run the same day, which
+reproduced the 86.7% exactly.
 
 | Model | Accuracy (30 replies) | Avg latency |
 |---|---|---|
-| Muse Spark 1.3 | 26/30 = 86.7% | TBD |
-| Open-weights model via Baseten / Fireworks | TBD | TBD |
+| Muse Spark 1.3 (Meta Model API) | 26/30 = 86.7% | 5.3s (median 3.0s) |
+| Llama 3.1 8B (local, Ollama, Apple M5 Pro) | 21/30 = 70.0% | 0.66s |
+
+Notes: Spark's mean latency is inflated by two API stalls (16s and 63s); the
+median is the fairer figure. Llama's misses cluster on intent boundaries
+(meeting-ready vs interested vs not-now; incumbent objections) — the easy
+classes (out-of-office, unsubscribe, price objections) it gets right. The
+takeaway: a small local model is a fast, free, private triage tier, but Spark
+earns its place on the replies that actually move pipeline. Label spellings
+from the local model were canonicalized (snake_case → hyphenated) before
+scoring; the runner is in pipeline-copilot-skeleton/scripts/.
 
 ## Demo (25%)
 
