@@ -40,7 +40,10 @@ Proven (Oct 27 runs):
   (industry +40, headcount in range +25, region +15, signal keywords +5
   each capped at +20; "not a buyer" prospects capped at 25 and excluded).
   Default ICP: warehouse automation / logistics / 3PL, 50–500 staff, US/CA.
-  Top prospect: Cascade Fulfillment Co, 95.
+  Top prospect: Cascade Fulfillment Co, 95. End-to-end proof Nov 2: the
+  P02 draft endpoint returned a live, signal-grounded outreach draft
+  (Cascade's 40% volume growth, automation-engineer hiring, conveyor
+  downtime), approved through the decision endpoint.
 
 Open-weights comparison — completed Nov 2, 2026. The same 30 replies and the
 same classification prompt were run through Meta's open-weight Llama 3.1 8B
@@ -67,7 +70,8 @@ scoring; the runner is in pipeline-copilot-skeleton/scripts/.
 
 - Funnel dashboard: replies in, classification and extraction visible,
   approve/edit/reject on every draft, hot classes (interested, meeting-ready)
-  flagged for Slack alerts.
+  flagged for Slack alerting — webhook posts when SLACK_WEBHOOK_URL is
+  configured, with a plain log fallback when it isn't.
 - Walkthrough hits the three edge cases: the out-of-office reply with a
   delegate (Jordan Ellis), the incumbent objection with a referral (Symbotic,
   Rachel Nguyen), and the polite Chinese not-now.
@@ -76,7 +80,7 @@ scoring; the runner is in pipeline-copilot-skeleton/scripts/.
 ## Technical Depth & Execution (20%)
 
 FastAPI + SQLite: ingest → classify → extract → draft → dashboard approval →
-Slack alerts, wired end to end. Eval harness runs all 30 labeled replies and
+Slack webhook alerts (log fallback when unconfigured), wired end to end. Eval harness runs all 30 labeled replies and
 reports accuracy. Graceful failure: if an API call fails, the dashboard says so
 plainly instead of silently dropping a reply.
 
