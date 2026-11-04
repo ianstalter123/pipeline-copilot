@@ -33,6 +33,7 @@ app = FastAPI(title="Pipeline Copilot")
 INBOX_HTML = """\
 <html><body style="font-family:sans-serif;max-width:900px;margin:2em auto">
 <h1>Pipeline Copilot — inbox</h1>
+<p><a href="/demo">guided demo and review queue</a></p>
 <p><a href="/funnel">funnel view</a> · <form action="/api/run" method="post"
 style="display:inline"><button>run pipeline</button></form></p>
 {rows}
@@ -49,12 +50,12 @@ def inbox():
     conn.close()
     html_rows = "".join(
         f"<div style='border:1px solid #ccc;padding:0.8em;margin:0.5em 0'>"
-        f"<b>{sender}</b> — {subject} "
+        f"<b>{sender}</b> — {subject} <a href='/replies/{reply_id}'>review reply</a> "
         f"<span style='background:#eef;padding:2px 6px;border-radius:4px'>{cls or 'unclassified'}</span> "
         f"{conf if conf is not None else ''}<br>"
         f"<pre>{(draft_text or '')[:400]}</pre>"
         f"<i>decision: {decision}</i></div>"
-        for (_, sender, subject, cls, conf, draft_text, decision) in rows
+        for (reply_id, sender, subject, cls, conf, draft_text, decision) in rows
     )
     return INBOX_HTML.format(rows=html_rows or "<p>No replies yet — run the pipeline.</p>")
 
@@ -240,3 +241,7 @@ def decide_lead_draft(draft_id: int, payload: Decision):
     conn.commit()
     conn.close()
     return {"draft_id": draft_id, "decision": payload.decision}
+
+# Views for reviewing saved multilingual replies without model calls.
+from app.demo_ui import register_demo_routes
+register_demo_routes(app)

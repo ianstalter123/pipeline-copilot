@@ -7,10 +7,11 @@ Submission deadline: Nov 4, 9:00 PM ET (6:00 PM PT).
 
 Inbound sales replies arrive in three languages, at volume, and the first hours
 decide whether a deal moves. Pipeline Copilot gives every reply a fast, correct
-next step: it triages Gmail sales replies into a funnel, classifies each one,
+next step: it triages synthetic sales replies into a funnel, classifies each one,
 extracts budget / timeline / pain point / decision-maker / next step, and drafts
 a voice-matched follow-up — in the reply's language, so no lead waits for a
-translator. Nothing sends without a human approve / edit / reject decision.
+translator. Drafts require a human approve / edit / reject decision. The prototype records
+those decisions; email sending is not implemented.
 Built for solo sellers and small teams who can't afford a RevOps hire.
 
 Demo vertical: Northwind Robotics (fictional warehouse-automation seller,
@@ -72,16 +73,21 @@ scoring; the runner is in pipeline-copilot-skeleton/scripts/.
   approve/edit/reject on every draft, hot classes (interested, meeting-ready)
   flagged for Slack alerting — webhook posts when SLACK_WEBHOOK_URL is
   configured, with a plain log fallback when it isn't.
-- Walkthrough hits the three edge cases: the out-of-office reply with a
+- The demo dataset includes three edge cases: the out-of-office reply with a
   delegate (Jordan Ellis), the incumbent objection with a referral (Symbotic,
   Rachel Nguyen), and the polite Chinese not-now.
-- Demo video: recording Nov 3 — link TBD.
+- Demo video: [Watch the Pipeline Copilot demo](https://youtu.be/7t6tbY3hwb4).
+- Recording entry point: `http://127.0.0.1:8000/demo`. Saved reply details and
+  approve/edit/reject controls: `/replies/2` (EN), `/replies/20` (ES), and
+  `/replies/26` (ZH). Saved evaluation summary: `/demo/eval`.
+- Start locally from `pipeline-copilot-skeleton/` with
+  `.venv/bin/python -m uvicorn app.server:app --host 127.0.0.1 --port 8000`.
+  Viewing saved results requires no model key. Do not run the pipeline to rehearse.
 
 ## Technical Depth & Execution (20%)
 
 FastAPI + SQLite: ingest → classify → extract → draft → dashboard approval →
 Slack webhook alerts (log fallback when unconfigured), wired end to end. Eval harness runs all 30 labeled replies and
-reports accuracy. Graceful failure: if an API call fails, the dashboard says so
-plainly instead of silently dropping a reply.
+reports accuracy. Review controls display save failures so the user can retry.
 
 Code lives in the `pipeline-copilot-skeleton/` directory of this repo.
